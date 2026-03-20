@@ -1,16 +1,9 @@
 import os
 import sys
-from pathlib import Path
+from dotenv import load_dotenv
 
 # Explicitly load local .env variables so users don't have to 'export'
-env_path = Path(".env")
-if env_path.exists():
-    with open(env_path, "r") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, val = line.split("=", 1)
-                os.environ[key.strip()] = val.strip().strip("'\"")
+load_dotenv()
 
 from huggingface_hub import HfApi
 from huggingface_hub.utils import HfHubHTTPError

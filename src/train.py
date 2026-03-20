@@ -4,6 +4,10 @@ import torch.nn.functional as F
 import tiktoken
 from datasets import load_dataset
 from torch.utils.data import DataLoader
+from dotenv import load_dotenv
+
+# Explicitly load local .env variables
+load_dotenv()
 
 from config import GPTConfig
 from model import GPTStyleTransformer
@@ -21,7 +25,8 @@ def main():
         config.dataset_name,
         name=config.dataset_subset,
         split="train",
-        streaming=True
+        streaming=True,
+        token=os.environ.get("HF_TOKEN")
     )
     encoder = tiktoken.get_encoding("cl100k_base")
     
