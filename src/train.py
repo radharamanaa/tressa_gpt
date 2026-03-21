@@ -43,6 +43,14 @@ def main():
     model = GPTStyleTransformer(config).to(config.device)
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Model instantiated with {total_params:,} trainable parameters.")
+    
+    # 4. Turbocharge performance
+    try:
+        print("Compiling model directly into C++ kernels for Ada/Hopper speedup...")
+        model = torch.compile(model)
+    except Exception as e:
+        print(f"Warning: torch.compile failed ({e}), continuing dynamically.")
+        
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
     
     if os.path.exists(checkpoint_path):
