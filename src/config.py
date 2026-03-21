@@ -20,13 +20,18 @@ class GPTConfig:
     max_steps: int = 1_220_703  # 5,000,000,000 tokens / (batch_size * block_size)
     
     # Curriculum Learning mapping training steps to (block_size, batch_size)
-    max_seq_len: int = 1000
+    max_seq_len: int = 1024
     curriculum_schedule: dict = field(default_factory=lambda: {
-        0: {"block_size": 128, "batch_size": 32},
-        800_000: {"block_size": 256, "batch_size": 16},
-        1_000_000: {"block_size": 512, "batch_size": 8},
-        1_150_000: {"block_size": 1000, "batch_size": 4}
+        0:         {"block_size": 64,   "batch_size": 64},  # Start tiny, learn super fast
+        200_000:   {"block_size": 128,  "batch_size": 32},
+        500_000:   {"block_size": 256,  "batch_size": 16},
+        800_000:   {"block_size": 512,  "batch_size": 8},
+        1_050_000: {"block_size": 1024, "batch_size": 4}    # The final 170k steps to lock in long-range coherence
     })
+    
+    # Fault Tolerance
+    checkpoint_interval: int = 5000
+    shuffle_buffer_size: int = 10000
     
     # Dataset
     dataset_name: str = "HuggingFaceFW/fineweb-edu"

@@ -1,4 +1,5 @@
 import os
+import time
 import torch
 import torch.nn.functional as F
 import tiktoken
@@ -28,7 +29,33 @@ def main():
         streaming=True,
         token=os.environ.get("HF_TOKEN")
     )
+    # Shuffle buffer
+    hf_ds = hf_ds.shuffle(seed=42, buffer_size=config.shuffle_buffer_size)
+    
     encoder = tiktoken.get_encoding("cl100k_base")
+    
+    # Set up Checkpointing State Tracking
+    checkpoint_path = os.path.join(config.checkpoint_dir, "latest_checkpoint.pt")
+    start_step = 0
+    dataset_state = {"docs_consumed": 0}
+    
+    # 3. Initialize Model & Optimizer immediately to allow weights loading
+    model = GPTStyleTransformer(config).to(config.device)
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Model instantiated with {total_params:,} trainable parameters.")
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
+    
+    if os.path.exists(checkpoint_path):
+        print(f"\n--- Resuming from Checkpoint: {checkpoint_path} ---")
+        checkpoint = torch.load(checkpoint_path, map_location=config.device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_step = checkpoint.get('step', 0)
+        dataset_state['docs_consumed'] = checkpoint.get('docs_consumed', 0)
+        
+        # Lossless fast-forwarding of the stream
+        print(f"Fast-forwarding dataset by {dataset_state['docs_consumed']} documents...")
+        hf_ds = hf_ds.skip(dataset_state['docs_consumed'])
     
     hf_iterator = iter(hf_ds)
     
@@ -38,28 +65,29 @@ def main():
             hf_iterator=hf_iterator,
             encoder=encoder,
             block_size=block_size,
-            stride=stride
+            stride=stride,
+            state_dict=dataset_state
         )
         return DataLoader(train_dataset, batch_size=batch_size)
         
+    # Find current curriculum block size based on the start_step
     current_block_size = config.curriculum_schedule[0]["block_size"]
     current_batch_size = config.curriculum_schedule[0]["batch_size"]
+    for t_step in sorted(config.curriculum_schedule.keys()):
+        if start_step >= t_step:
+            current_block_size = config.curriculum_schedule[t_step]["block_size"]
+            current_batch_size = config.curriculum_schedule[t_step]["batch_size"]
+            
     train_loader = create_dataloader(current_block_size, current_batch_size)
     data_iter = iter(train_loader)
-    
-    # 3. Initialize Model
-    model = GPTStyleTransformer(config).to(config.device)
-    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Model instantiated with {total_params:,} trainable parameters.")
-    
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
     
     # 4. Training Loop setup
     os.makedirs(config.checkpoint_dir, exist_ok=True)
     model.train()
     
     print(f"\nStarting Training! Committing to 5 Billion Tokens ({config.max_steps} steps).")
-    step = 0
+    step = start_step
+    start_time = time.time()
     while True:
         # Check for curriculum upgrades
         if step in config.curriculum_schedule and step != 0:
@@ -98,9 +126,28 @@ def main():
         
         # Logging
         if step % 100 == 0:
-            print(f"Step {step:07d} | Loss: {loss.item():.4f}")
+            if step == 0:
+                print(f"Step {step:07d} | Loss: {loss.item():.4f}")
+            else:
+                elapsed = time.time() - start_time
+                s_per_step = elapsed / 100
+                eta_hrs = (config.max_steps - step) * s_per_step / 3600
+                print(f"Step {step:07d} | Loss: {loss.item():.4f} | {s_per_step:.2f}s/step | ETA: {eta_hrs:.2f} hrs")
+                start_time = time.time()
+            
             
         step += 1
+            
+        # Periodic Checkpointing
+        if step > start_step and step % config.checkpoint_interval == 0:
+            ckpt_path = os.path.join(config.checkpoint_dir, "latest_checkpoint.pt")
+            torch.save({
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'step': step,
+                'docs_consumed': dataset_state['docs_consumed']
+            }, ckpt_path)
+            print(f"--- Auto-Checkpoint saved at Step {step} (Docs Consumed: {dataset_state['docs_consumed']}) ---")
             
         # Unified Stopping mechanism for precisely 5 Billion Tokens
         if step >= config.max_steps:
