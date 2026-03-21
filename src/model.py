@@ -86,7 +86,7 @@ class _TransformerBlock(nn.Module):
         
         return ffn_output + x
 
-class GPTStyleTransformer(nn.Module):
+class TressaGPTModel(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.embed_dim = config.embed_dim

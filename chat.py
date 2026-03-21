@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 import tiktoken
 from src.config import GPTConfig
-from src.model import GPTStyleTransformer
+from src.model import TressaGPTModel
 
 def generate_text(model, encoder, prompt, max_new_tokens=50, device="cpu"):
     """
@@ -48,7 +48,7 @@ def main():
     encoder = tiktoken.get_encoding("cl100k_base")
     
     print(f"Instantiating model on {device}...")
-    model = GPTStyleTransformer(config).to(device)
+    model = TressaGPTModel(config).to(device)
     
     checkpoint_path = os.path.join(config.checkpoint_dir, "gpt_model_5B_tokens.pt")
     if os.path.exists(checkpoint_path):

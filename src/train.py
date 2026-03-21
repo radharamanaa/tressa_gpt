@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config import GPTConfig
-from model import GPTStyleTransformer
+from model import TressaGPTModel
 from data import GPTStreamingDataset
 
 def main():
@@ -40,7 +40,7 @@ def main():
     dataset_state = {"docs_consumed": 0}
     
     # 3. Initialize Model & Optimizer immediately to allow weights loading
-    model = GPTStyleTransformer(config).to(config.device)
+    model = TressaGPTModel(config).to(config.device)
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Model instantiated with {total_params:,} trainable parameters.")
     
