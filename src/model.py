@@ -113,10 +113,10 @@ class TressaGPTModel(nn.Module):
         """
         return {"input_ids": input_ids}
 
-    def forward(self, input_token_ids):
-        token_embed = self.token_embed(input_token_ids)
-        seq_len = input_token_ids.shape[-1]
-        pos_embed = self.pos_embed(seq_len).to(input_token_ids.device)
+    def forward(self, input_ids, **kwargs):
+        token_embed = self.token_embed(input_ids)
+        seq_len = input_ids.shape[-1]
+        pos_embed = self.pos_embed(seq_len).to(input_ids.device)
         
         data = self.embed_dropout(token_embed + pos_embed)
         
