@@ -89,6 +89,7 @@ class _TransformerBlock(nn.Module):
 class TressaGPTModel(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.embed_dim = config.embed_dim
         self.token_embed = nn.Embedding(config.vocab_size, embedding_dim=config.embed_dim)
         self.pos_embed = _SinusoidalPositionalEmbedding(d_model=config.embed_dim, max_len=config.max_seq_len)
@@ -105,10 +106,17 @@ class TressaGPTModel(nn.Module):
         # Tie weights to save parameters
         self.lm_head.weight = self.token_embed.weight
 
-    def forward(self, input_token_ids):
-        token_embed = self.token_embed(input_token_ids)
-        seq_len = input_token_ids.shape[-1]
-        pos_embed = self.pos_embed(seq_len).to(input_token_ids.device)
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        """
+        Mock method to satisfy Hugging Face PEFT's arbitrary requirements 
+        for wrapping Custom PyTorch Causal LM Models.
+        """
+        return {"input_ids": input_ids}
+
+    def forward(self, input_ids, **kwargs):
+        token_embed = self.token_embed(input_ids)
+        seq_len = input_ids.shape[-1]
+        pos_embed = self.pos_embed(seq_len).to(input_ids.device)
         
         data = self.embed_dropout(token_embed + pos_embed)
         

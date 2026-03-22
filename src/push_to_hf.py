@@ -45,7 +45,6 @@ def push_model_to_hf(repo_id: str, checkpoint_path: str):
     """
     if not os.path.exists(checkpoint_path):
         print(f"❌ Checkpoint not found at {checkpoint_path}")
-        print("Please run the training loop (`python src/train.py`) before pushing.")
         sys.exit(1)
         
     # Strictly pull token from env variables
@@ -62,14 +61,25 @@ def push_model_to_hf(repo_id: str, checkpoint_path: str):
     if not verify_token_permissions(api, repo_id):
         sys.exit(1)
 
-    # Upload the .pt weights file
-    print(f"\nUploading '{checkpoint_path}'...")
-    api.upload_file(
-        path_or_fileobj=checkpoint_path,
-        path_in_repo="tressa_gpt_step840k_3.4B_tokens.pt",
-        repo_id=repo_id,
-        repo_type="model",
-    )
+    filename = os.path.basename(checkpoint_path)
+    
+    # Intelligently split the logic for files vs folders!
+    if os.path.isfile(checkpoint_path):
+        print(f"\nUploading file '{checkpoint_path}' as '{filename}'...")
+        api.upload_file(
+            path_or_fileobj=checkpoint_path,
+            path_in_repo=filename,
+            repo_id=repo_id,
+            repo_type="model",
+        )
+    elif os.path.isdir(checkpoint_path):
+        print(f"\nUploading folder '{checkpoint_path}' into directory '{filename}/'...")
+        api.upload_folder(
+            folder_path=checkpoint_path,
+            path_in_repo=filename,
+            repo_id=repo_id,
+            repo_type="model",
+        )
     
     # Upload the config file for transparent reproducibility
     config_path = "src/config.py" # Assumes script is run from project root
@@ -87,13 +97,63 @@ def push_model_to_hf(repo_id: str, checkpoint_path: str):
 if __name__ == "__main__":
     # --- IMPORTANT ---
     # Change 'your-username/my-first-gpt-5B' to your actual HF repo name
-    USER_REPO = "your-username/my-first-gpt-5B" 
+    USER_REPO = "abhijeetmishra101/tressa_gpt_50M" 
     
     config = GPTConfig()
-    CHECKPOINT = os.path.join(config.checkpoint_dir, "latest_checkpoint.pt")
+    checkpoint_dir = config.checkpoint_dir
     
-    choice = input(f"Do you want to run the push pipeline for '{USER_REPO}'? (y/n): ")
-    if choice.lower() == 'y':
-        push_model_to_hf(USER_REPO, CHECKPOINT)
-    else:
-        print("Pipeline aborted.")
+    if not os.path.exists(checkpoint_dir):
+        print(f"❌ Checkpoint directory '{checkpoint_dir}' does not exist.")
+        sys.exit(1)
+        
+    # Find all .pt files AND all subdirectories in the checkpoint directory
+    items = []
+    for f in os.listdir(checkpoint_dir):
+        path = os.path.join(checkpoint_dir, f)
+        if f.endswith(".pt") or os.path.isdir(path):
+            if f not in [".DS_Store"]:  # filter macOS hidden files
+                items.append(f)
+    
+    if not items:
+        print(f"❌ No models or folders found in '{checkpoint_dir}'.")
+        print("Please run the training loop before pushing.")
+        sys.exit(1)
+        
+    print("\n📦 Available Checkpoints & Adapters:")
+    for i, file in enumerate(items):
+        path = os.path.join(checkpoint_dir, file)
+        dtype = "FOLDER" if os.path.isdir(path) else "FILE"
+        print(f"  [{i + 1}] [{dtype}] {file}")
+        
+    try:
+        choice = input("\nEnter the number of the model/folder you want to upload (or 'q' to quit): ")
+        if choice.lower() == 'q':
+            print("Pipeline aborted.")
+            sys.exit(0)
+            
+        choice_idx = int(choice) - 1
+    except ValueError:
+        print("❌ Invalid input. Please enter a number.")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nPipeline aborted.")
+        sys.exit(0)
+        
+    if choice_idx < 0 or choice_idx >= len(items):
+        print("❌ Invalid selection. Please select a valid number.")
+        sys.exit(1)
+        
+    selected_file = items[choice_idx]
+    checkpoint_path = os.path.join(checkpoint_dir, selected_file)
+    
+    try:
+        # Confirm upload
+        confirm = input(f"\nReady to push '{selected_file}' to '{USER_REPO}'. Continue? (y/n): ")
+        if confirm.lower() == 'y':
+            push_model_to_hf(USER_REPO, checkpoint_path)
+        else:
+            print("Pipeline aborted.")
+            
+    except KeyboardInterrupt:
+        print("\nPipeline aborted.")
+        sys.exit(0)

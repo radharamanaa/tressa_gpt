@@ -64,7 +64,7 @@ def main():
     
     # 1. Load Base Model
     model = TressaGPTModel(config).to(config.device)
-    checkpoint_path = os.path.join(config.checkpoint_dir, "latest_checkpoint.pt")
+    checkpoint_path = os.path.join(config.checkpoint_dir, "tressa_gpt_50M.pt")
     if os.path.exists(checkpoint_path):
         print(f"Loading Pre-Trained Weights from {checkpoint_path}...")
         checkpoint = torch.load(checkpoint_path, map_location=config.device)
@@ -88,7 +88,7 @@ def main():
     hf_ds = load_dataset("tatsu-lab/alpaca", split="train")
     encoder = tiktoken.get_encoding("cl100k_base")
     train_dataset = InstructionDataset(hf_ds, encoder, max_len=1024)
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
     
     # 4. Optimizer (Only affects LoRA injected parameters!)
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4) # SFT learning rates are smaller

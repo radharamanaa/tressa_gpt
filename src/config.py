@@ -3,6 +3,9 @@ import torch
 
 @dataclass
 class GPTConfig:
+    # Hugging Face PEFT Boilerplate Requirement
+    model_type: str = "tressa_gpt"
+    
     # Model parameters
     embed_dim: int = 384
     no_of_trans_blocks: int = 6
@@ -22,11 +25,8 @@ class GPTConfig:
     # Curriculum Learning mapping training steps to (block_size, batch_size)
     max_seq_len: int = 1024
     curriculum_schedule: dict = field(default_factory=lambda: {
-        0:         {"block_size": 64,   "batch_size": 64},  # Start tiny, learn super fast
-        200_000:   {"block_size": 128,  "batch_size": 32},
-        500_000:   {"block_size": 256,  "batch_size": 16},
-        800_000:   {"block_size": 512,  "batch_size": 8},
-        1_050_000: {"block_size": 1024, "batch_size": 4}    # The final 170k steps to lock in long-range coherence
+        # Forced strictly to maximum context length for the remaining 380,000 steps!
+        0: {"block_size": 1024, "batch_size": 4} 
     })
     
     # Fault Tolerance
