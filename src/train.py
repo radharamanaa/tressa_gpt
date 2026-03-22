@@ -53,8 +53,23 @@ def main():
     if os.path.exists(checkpoint_path):
         print(f"\n--- Resuming from Checkpoint: {checkpoint_path} ---")
         checkpoint = torch.load(checkpoint_path, map_location=config.device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        
+        # Safely un-prefix the compiled state dictionary so raw loading never crashes
+        raw_state_dict = checkpoint.get('model_state_dict', {})
+        clean_state_dict = {}
+        for key, value in raw_state_dict.items():
+            if key.startswith("_orig_mod."):
+                clean_state_dict[key[10:]] = value
+            else:
+                clean_state_dict[key] = value
+                
+        model.load_state_dict(clean_state_dict)
+        
+        try:
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        except Exception as e:
+            print(f"Warning: Optimizer state mismatched ({e}). Starting fresh AdamW momentum...")
+            
         start_step = checkpoint.get('step', 0)
         dataset_state['docs_consumed'] = checkpoint.get('docs_consumed', 0)
         
