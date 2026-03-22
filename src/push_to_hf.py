@@ -61,15 +61,25 @@ def push_model_to_hf(repo_id: str, checkpoint_path: str):
     if not verify_token_permissions(api, repo_id):
         sys.exit(1)
 
-    # Upload the selected .pt weights file
     filename = os.path.basename(checkpoint_path)
-    print(f"\nUploading '{checkpoint_path}' as '{filename}'...")
-    api.upload_file(
-        path_or_fileobj=checkpoint_path,
-        path_in_repo=filename,
-        repo_id=repo_id,
-        repo_type="model",
-    )
+    
+    # Intelligently split the logic for files vs folders!
+    if os.path.isfile(checkpoint_path):
+        print(f"\nUploading file '{checkpoint_path}' as '{filename}'...")
+        api.upload_file(
+            path_or_fileobj=checkpoint_path,
+            path_in_repo=filename,
+            repo_id=repo_id,
+            repo_type="model",
+        )
+    elif os.path.isdir(checkpoint_path):
+        print(f"\nUploading folder '{checkpoint_path}' into directory '{filename}/'...")
+        api.upload_folder(
+            folder_path=checkpoint_path,
+            path_in_repo=filename,
+            repo_id=repo_id,
+            repo_type="model",
+        )
     
     # Upload the config file for transparent reproducibility
     config_path = "src/config.py" # Assumes script is run from project root
@@ -96,32 +106,47 @@ if __name__ == "__main__":
         print(f"❌ Checkpoint directory '{checkpoint_dir}' does not exist.")
         sys.exit(1)
         
-    # Find all .pt files in the checkpoint directory
-    pt_files = [f for f in os.listdir(checkpoint_dir) if f.endswith(".pt")]
+    # Find all .pt files AND all subdirectories in the checkpoint directory
+    items = []
+    for f in os.listdir(checkpoint_dir):
+        path = os.path.join(checkpoint_dir, f)
+        if f.endswith(".pt") or os.path.isdir(path):
+            if f not in [".DS_Store"]:  # filter macOS hidden files
+                items.append(f)
     
-    if not pt_files:
-        print(f"❌ No .pt files found in '{checkpoint_dir}'.")
+    if not items:
+        print(f"❌ No models or folders found in '{checkpoint_dir}'.")
         print("Please run the training loop before pushing.")
         sys.exit(1)
         
-    print("\n📦 Available Checkpoints:")
-    for i, file in enumerate(pt_files):
-        print(f"  [{i + 1}] {file}")
+    print("\n📦 Available Checkpoints & Adapters:")
+    for i, file in enumerate(items):
+        path = os.path.join(checkpoint_dir, file)
+        dtype = "FOLDER" if os.path.isdir(path) else "FILE"
+        print(f"  [{i + 1}] [{dtype}] {file}")
         
     try:
-        choice = input("\nEnter the number of the checkpoint you want to upload (or 'q' to quit): ")
+        choice = input("\nEnter the number of the model/folder you want to upload (or 'q' to quit): ")
         if choice.lower() == 'q':
             print("Pipeline aborted.")
             sys.exit(0)
             
         choice_idx = int(choice) - 1
-        if choice_idx < 0 or choice_idx >= len(pt_files):
-            print("❌ Invalid selection. Please select a valid number.")
-            sys.exit(1)
-            
-        selected_file = pt_files[choice_idx]
-        checkpoint_path = os.path.join(checkpoint_dir, selected_file)
+    except ValueError:
+        print("❌ Invalid input. Please enter a number.")
+        sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nPipeline aborted.")
+        sys.exit(0)
         
+    if choice_idx < 0 or choice_idx >= len(items):
+        print("❌ Invalid selection. Please select a valid number.")
+        sys.exit(1)
+        
+    selected_file = items[choice_idx]
+    checkpoint_path = os.path.join(checkpoint_dir, selected_file)
+    
+    try:
         # Confirm upload
         confirm = input(f"\nReady to push '{selected_file}' to '{USER_REPO}'. Continue? (y/n): ")
         if confirm.lower() == 'y':
@@ -129,9 +154,6 @@ if __name__ == "__main__":
         else:
             print("Pipeline aborted.")
             
-    except ValueError:
-        print("❌ Invalid input. Please enter a number.")
-        sys.exit(1)
     except KeyboardInterrupt:
         print("\nPipeline aborted.")
         sys.exit(0)

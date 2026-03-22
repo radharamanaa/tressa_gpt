@@ -6,7 +6,7 @@ from config import GPTConfig
 from model import TressaGPTModel # Targeting your new class name!
 from peft import PeftModel
 
-def generate(model, prompt, encoder, config, max_new_tokens=100, temperature=0.8, top_k=50):
+def generate(model, prompt, encoder, config, max_new_tokens=100, temperature=0.7, top_k=50):
     model.eval()
     
     # 1. Encode human readable prompt into Neural Tokens
