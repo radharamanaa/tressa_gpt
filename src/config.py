@@ -3,6 +3,9 @@ import torch
 
 @dataclass
 class GPTConfig:
+    # Hugging Face PEFT Boilerplate Requirement
+    model_type: str = "tressa_gpt"
+    
     # Model parameters
     embed_dim: int = 384
     no_of_trans_blocks: int = 6

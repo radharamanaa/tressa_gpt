@@ -89,6 +89,7 @@ class _TransformerBlock(nn.Module):
 class TressaGPTModel(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.embed_dim = config.embed_dim
         self.token_embed = nn.Embedding(config.vocab_size, embedding_dim=config.embed_dim)
         self.pos_embed = _SinusoidalPositionalEmbedding(d_model=config.embed_dim, max_len=config.max_seq_len)
