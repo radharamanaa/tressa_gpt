@@ -12,8 +12,6 @@ def generate(model, prompt, encoder, config, max_new_tokens=100, temperature=0.8
     input_ids = encoder.encode(prompt)
     x = torch.tensor([input_ids], dtype=torch.long, device=config.device)
     
-    print(f"\n{prompt}", end="")
-    
     # 2. Autoregressive Loop
     for _ in range(max_new_tokens):
         # Prevent the sequence from blowing past 1024 tokens and crashing positional embeddings
@@ -81,12 +79,27 @@ def main():
     docs_consumed = checkpoint.get("docs_consumed", 0)
     print(f"✅ Neural Network active! (Resumed from Step {checkpoint.get('step', '?')} - {docs_consumed} docs read)")
     
-    # 4. Fire the Chat Generator
+    # 4. Fire the Interactive Chat Generator
     encoder = tiktoken.get_encoding("cl100k_base")
-    prompt = "The most fundamental concept in learning how to write Python code is "
     
-    print("\n--- Neural Output ---")
-    generate(model, prompt, encoder, config, max_new_tokens=150)
+    print("\n" + "="*50)
+    print("Welcome to Tressa_GPT Interactive Neural Shell!")
+    print("Type 'quit' or 'exit' to shut down.")
+    print("="*50 + "\n")
+    
+    while True:
+        try:
+            prompt = input("You >> ")
+            if prompt.strip().lower() in ['quit', 'exit']:
+                break
+            if not prompt.strip():
+                continue
+                
+            print("Tressa >> ", end="")
+            generate(model, prompt, encoder, config, max_new_tokens=150)
+        except (KeyboardInterrupt, EOFError):
+            print("\nShutting down engine...")
+            break
 
 if __name__ == "__main__":
     main()
