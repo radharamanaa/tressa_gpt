@@ -17,7 +17,7 @@ def main():
     
     # 1. Load Base Pretrained Brain
     base_model = TressaGPTModel(config).to(config.device)
-    checkpoint_path = os.path.join(config.checkpoint_dir, "latest_checkpoint.pt")
+    checkpoint_path = os.path.join(config.checkpoint_dir, "tressa_gpt_50M.pt")
     if os.path.exists(checkpoint_path):
         checkpoint = torch.load(checkpoint_path, map_location=config.device)
         base_model.load_state_dict(checkpoint['model_state_dict'])

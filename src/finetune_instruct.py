@@ -64,7 +64,7 @@ def main():
     
     # 1. Load Base Model
     model = TressaGPTModel(config).to(config.device)
-    checkpoint_path = os.path.join(config.checkpoint_dir, "latest_checkpoint.pt")
+    checkpoint_path = os.path.join(config.checkpoint_dir, "tressa_gpt_50M.pt")
     if os.path.exists(checkpoint_path):
         print(f"Loading Pre-Trained Weights from {checkpoint_path}...")
         checkpoint = torch.load(checkpoint_path, map_location=config.device)
