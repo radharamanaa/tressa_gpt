@@ -66,7 +66,7 @@ def push_model_to_hf(repo_id: str, checkpoint_path: str):
     print(f"\nUploading '{checkpoint_path}'...")
     api.upload_file(
         path_or_fileobj=checkpoint_path,
-        path_in_repo="gpt_model_5B_tokens.pt",
+        path_in_repo="tressa_gpt_step840k_3.4B_tokens.pt",
         repo_id=repo_id,
         repo_type="model",
     )
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     USER_REPO = "your-username/my-first-gpt-5B" 
     
     config = GPTConfig()
-    CHECKPOINT = os.path.join(config.checkpoint_dir, "gpt_model_5B_tokens.pt")
+    CHECKPOINT = os.path.join(config.checkpoint_dir, "latest_checkpoint.pt")
     
     choice = input(f"Do you want to run the push pipeline for '{USER_REPO}'? (y/n): ")
     if choice.lower() == 'y':

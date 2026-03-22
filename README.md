@@ -1,4 +1,4 @@
-# My First GPT Model 🧠
+# Tressa GPT 🧠
 
 A fully custom, **51-million parameter** GPT-style autoregressive language model built from scratch in PyTorch. Trained natively on the 10-billion-token Hugging Face *FineWeb-Edu* dataset!
 
