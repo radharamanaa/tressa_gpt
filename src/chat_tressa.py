@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import tiktoken
 from config import GPTConfig
 from model import TressaGPTModel # Targeting your new class name!
+from peft import PeftModel
 
 def generate(model, prompt, encoder, config, max_new_tokens=100, temperature=0.8, top_k=50):
     model.eval()
@@ -39,6 +40,10 @@ def generate(model, prompt, encoder, config, max_new_tokens=100, temperature=0.8
         token_str = encoder.decode([idx_next.item()])
         print(token_str, end="", flush=True)
         
+        # Stop generation cleanly if the model emits an end-of-turn token!
+        if hasattr(encoder, 'eot_token') and idx_next.item() == encoder.eot_token:
+            break
+        
         # Append the new token back into the continuous stream
         x = torch.cat((x, idx_next), dim=1)
         
@@ -52,8 +57,8 @@ def main():
     # 1. Initialize Blank Brain explicitly using your TressaGPTModel Class
     model = TressaGPTModel(config).to(device)
     
-    # 2. Locate the 3.4B-Token Checkpoint
-    checkpoint_path = os.path.join(config.checkpoint_dir, "latest_checkpoint.pt")
+    # 2. Locate the 50M-Parameter Base Checkpoint
+    checkpoint_path = os.path.join(config.checkpoint_dir, "tressa_gpt_50M.pt")
     if not os.path.exists(checkpoint_path):
         print(f"Error: Checkpoint '{checkpoint_path}' not found.")
         return
@@ -76,6 +81,20 @@ def main():
     # Load the perfectly clean dictionary!
     model.load_state_dict(clean_state_dict)
     
+    # Inject the LoRA adapters! 
+    # Prioritizing Stage 2 (Python), then falling back to Stage 1 (Alpaca Instruct)
+    python_lora = os.path.join(config.checkpoint_dir, "tressa_gpt_python_lora")
+    instruct_lora = os.path.join(config.checkpoint_dir, "tressa_gpt_instruct_lora")
+    
+    if os.path.exists(python_lora):
+        print(f"Loading Stage 2 Python LoRA from {python_lora}...")
+        model = PeftModel.from_pretrained(model, python_lora)
+    elif os.path.exists(instruct_lora):
+        print(f"Loading Stage 1 Instruct LoRA from {instruct_lora}...")
+        model = PeftModel.from_pretrained(model, instruct_lora)
+    else:
+        print("Warning: No LoRA adapters found! Running raw base model.")
+        
     docs_consumed = checkpoint.get("docs_consumed", 0)
     print(f"✅ Neural Network active! (Resumed from Step {checkpoint.get('step', '?')} - {docs_consumed} docs read)")
     
@@ -95,8 +114,11 @@ def main():
             if not prompt.strip():
                 continue
                 
+            # Wrap in the exact Instruction format the model learned during Fine-Tuning!
+            formatted_prompt = f"Instruction: {prompt}\nResponse: "
+            
             print("Tressa >> ", end="")
-            generate(model, prompt, encoder, config, max_new_tokens=150)
+            generate(model, formatted_prompt, encoder, config, max_new_tokens=150)
         except (KeyboardInterrupt, EOFError):
             print("\nShutting down engine...")
             break

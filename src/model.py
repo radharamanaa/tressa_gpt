@@ -105,6 +105,13 @@ class TressaGPTModel(nn.Module):
         # Tie weights to save parameters
         self.lm_head.weight = self.token_embed.weight
 
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
+        """
+        Mock method to satisfy Hugging Face PEFT's arbitrary requirements 
+        for wrapping Custom PyTorch Causal LM Models.
+        """
+        return {"input_ids": input_ids}
+
     def forward(self, input_token_ids):
         token_embed = self.token_embed(input_token_ids)
         seq_len = input_token_ids.shape[-1]
